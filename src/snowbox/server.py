@@ -27,10 +27,10 @@ connector = SnowflakeConnector()  # lazy — no connection opened at import time
 
 # ── Delegate to marimo-sandbox _impl_* functions ──────────────────────────────
 
-import marimo_sandbox.server as _ms_server  # noqa: E402  (for .fn access on tool objects)
 from marimo_sandbox.server import (  # noqa: E402
     _impl_approve_run,
     _impl_cancel_run,
+    _impl_check_setup,
     _impl_clean_environments,
     _impl_delete_run,
     _impl_diff_runs,
@@ -286,7 +286,7 @@ def _impl_sf_run_python(
 
 
 def _impl_sf_check_setup() -> dict:
-    base: dict = _ms_server.check_setup.fn()
+    base: dict = _impl_check_setup()
     sf_test = connector.test()
     sf_info: dict = {**sf_test}
     # Warn when no default database is configured — unqualified DDL will fail
