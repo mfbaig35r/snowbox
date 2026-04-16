@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import os
 import secrets
-import socket
-import subprocess
-import time
 from pathlib import Path
 
 import pandas as pd
@@ -43,6 +40,7 @@ from marimo_sandbox.server import (  # noqa: E402
     _impl_list_environments,
     _impl_list_pending_approvals,
     _impl_list_runs,
+    _impl_open_notebook,
     _impl_purge_runs,
     _impl_read_artifact,
     _impl_rerun,
@@ -370,31 +368,6 @@ def check_setup() -> dict:
 # ── Group B passthroughs ──────────────────────────────────────────────────────
 
 
-def _port_is_open(port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(("127.0.0.1", port)) == 0
-
-
-def _free_port(port: int) -> None:
-    """Kill any process bound to *port* so marimo can claim it."""
-    try:
-        result = subprocess.run(
-            ["lsof", "-ti", f"tcp:{port}"],
-            capture_output=True,
-            text=True,
-            timeout=3,
-        )
-        for pid_str in result.stdout.strip().split():
-            try:
-                os.kill(int(pid_str), 15)  # SIGTERM
-            except (ProcessLookupError, ValueError):
-                pass
-        if result.stdout.strip():
-            time.sleep(0.75)  # give the process time to die
-    except Exception:
-        pass
-
-
 @mcp.tool()
 def open_notebook(run_id: str, port: int = 2718) -> dict:
     """
@@ -419,57 +392,7 @@ def open_notebook(run_id: str, port: int = 2718) -> dict:
     Returns:
         success, url, pid, notebook_path, message — or success=False + error.
     """
-    run_result = _impl_get_run(run_id, include_code=False)
-    if run_result.get("error"):
-        return {"success": False, "error": run_result["error"]}
-
-    notebook_path_str = run_result.get("notebook_path") or ""
-    if not notebook_path_str:
-        return {"success": False, "error": f"Run {run_id!r} not found or has no notebook path"}
-    notebook_path = Path(notebook_path_str)
-    if not notebook_path.exists():
-        return {"success": False, "error": f"Notebook file not found at {notebook_path}"}
-
-    # Kill any existing server on this port so we don't accidentally return
-    # success against a stale process serving a different notebook.
-    _free_port(port)
-
-    # Activate the run's cached virtualenv so the kernel has all packages.
-    # Falls back to the current environment if the venv doesn't exist.
-    env = os.environ.copy()
-    env_hash = run_result.get("env_hash") or ""
-    if env_hash:
-        venv_dir = DATA_DIR / "envs" / env_hash
-        venv_bin = venv_dir / "bin"
-        if venv_bin.exists():
-            env["VIRTUAL_ENV"] = str(venv_dir)
-            env["PATH"] = str(venv_bin) + os.pathsep + env.get("PATH", "")
-
-    process = subprocess.Popen(
-        ["marimo", "edit", str(notebook_path), "--port", str(port), "--no-token", "--no-sandbox"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=env,
-    )
-
-    deadline = time.monotonic() + 15
-    while time.monotonic() < deadline:
-        if process.poll() is not None:
-            raw_err = process.stderr.read() if process.stderr else b""
-            stderr_text = raw_err.decode(errors="replace")[:400]
-            return {"success": False, "error": f"marimo exited: {stderr_text}"}
-        if _port_is_open(port):
-            return {
-                "success": True,
-                "url": f"http://127.0.0.1:{port}",
-                "pid": process.pid,
-                "notebook_path": str(notebook_path),
-                "message": "Notebook is open. Navigate to the URL to view it.",
-            }
-        time.sleep(0.25)
-
-    process.terminate()
-    return {"success": False, "error": "marimo did not become ready within 15 seconds"}
+    return _impl_open_notebook(run_id, port)
 
 
 @mcp.tool()
