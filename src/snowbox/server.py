@@ -45,6 +45,7 @@ from marimo_sandbox.server import (  # noqa: E402
     _impl_read_artifact,
     _impl_rerun,
     _impl_run_python,
+    _inject_pep723_header,
 )
 
 # ── Server ────────────────────────────────────────────────────────────────────
@@ -219,39 +220,6 @@ def describe_table(
 # ── Group B: Enhanced marimo-sandbox tools ────────────────────────────────────
 
 
-def _inject_pep723_header(notebook_path: str, packages: list[str]) -> None:
-    """Prepend PEP 723 inline script metadata to *notebook_path*.
-
-    This tells ``marimo edit`` (via uv) which packages to install so the
-    notebook opens with a working kernel instead of showing "kernel not found".
-    """
-    path = Path(notebook_path)
-    if not path.exists():
-        return
-    content = path.read_text(encoding="utf-8")
-    # Don't double-inject
-    if "# /// script" in content:
-        return
-    # Pin marimo to the installed version so --sandbox doesn't upgrade it and
-    # cause a notebook-format mismatch ("kernel not found" in the browser).
-    try:
-        import marimo as _marimo
-        marimo_pin = f"marimo=={_marimo.__version__}"
-    except Exception:
-        marimo_pin = "marimo"
-    pinned = [marimo_pin if p == "marimo" else p for p in packages]
-    dep_lines = "\n".join(f'#     "{pkg}",' for pkg in pinned)
-    header = (
-        "# /// script\n"
-        "# requires-python = \">=3.11\"\n"
-        "# dependencies = [\n"
-        f"{dep_lines}\n"
-        "# ]\n"
-        "# ///\n"
-    )
-    path.write_text(header + content, encoding="utf-8")
-
-
 def _impl_sf_run_python(
     code: str,
     description: str = "Snowflake Python run",
@@ -263,6 +231,23 @@ def _impl_sf_run_python(
     require_approval: bool = False,
     parent_run_id: str | None = None,
 ) -> dict:
+    if sandbox:
+        return {
+            "run_id": None,
+            "status": "error",
+            "error": (
+                "sandbox=True is not supported for Snowflake runs. "
+                "The __snowflake__ context requires network access to reach Snowflake, "
+                "which is blocked by Docker's --network=none. "
+                "Use sandbox=False (the default) for Snowflake-connected code."
+            ),
+            "stdout": "",
+            "stderr": "",
+            "duration_ms": 0,
+            "notebook_path": None,
+            "view_command": None,
+        }
+
     packages = list(packages or [])
     for pkg in SNOWFLAKE_REQUIRED_PACKAGES:
         if pkg not in packages:

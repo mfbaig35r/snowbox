@@ -4,8 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "snowbox"
-version = "0.1.0"
+version = "0.2.0"
+description = "FastMCP server: Snowflake-connected Python in auditable Marimo notebooks"
+readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Fahad Baig", email = "mfbaig35r@gmail.com"},
+]
 dependencies = [
     "marimo-sandbox>=1.0.0",
     "fastmcp>=2.0.0",
@@ -14,6 +20,10 @@ dependencies = [
     "pandas>=2.0",
     "pydantic>=2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/mfbaig35r/snowbox"
+Repository = "https://github.com/mfbaig35r/snowbox"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "pytest-timeout", "ruff", "mypy>=1.0"]

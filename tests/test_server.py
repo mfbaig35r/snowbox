@@ -77,6 +77,30 @@ class TestSfRunPython:
         pkgs = captured["packages"]
         assert pkgs.count("snowflake-connector-python[pandas]") == 1
 
+    def test_run_python_sandbox_blocked(self) -> None:
+        from snowbox.server import _impl_sf_run_python
+
+        result = _impl_sf_run_python(code="print('hi')", sandbox=True)
+
+        assert result["status"] == "error"
+        assert "sandbox=True is not supported" in result["error"]
+        assert "network access" in result["error"]
+
+    def test_run_python_sandbox_false_works(self) -> None:
+        from snowbox.server import _impl_sf_run_python
+
+        captured: dict = {}
+
+        def fake_run_python(**kwargs: object) -> dict:
+            captured.update(kwargs)
+            return {"run_id": "x", "status": "success"}
+
+        with patch("snowbox.server._impl_run_python", side_effect=fake_run_python):
+            result = _impl_sf_run_python(code="print('hi')", sandbox=False)
+
+        assert result["status"] == "success"
+        assert captured["sandbox"] is False
+
     def test_run_python_forwards_kwargs(self) -> None:
         from snowbox.server import _impl_sf_run_python
 
@@ -90,12 +114,12 @@ class TestSfRunPython:
             _impl_sf_run_python(
                 code="x",
                 timeout_seconds=120,
-                sandbox=True,
+                sandbox=False,
                 async_mode=True,
             )
 
         assert captured["timeout_seconds"] == 120
-        assert captured["sandbox"] is True
+        assert captured["sandbox"] is False
         assert captured["async_mode"] is True
 
 
@@ -108,14 +132,11 @@ class TestSfCheckSetup:
         from snowbox.server import _impl_sf_check_setup
 
         fake_base = {"data_dir": "/tmp", "marimo_available": True, "ready": True}
-        mock_tool = MagicMock()
-        mock_tool.fn.return_value = fake_base
 
         with (
-            patch("snowbox.server._ms_server") as mock_ms,
+            patch("snowbox.server._impl_check_setup", return_value=fake_base),
             patch("snowbox.server.connector") as mock_connector,
         ):
-            mock_ms.check_setup = mock_tool
             mock_connector.test.return_value = {"status": "ok"}
             mock_connector._database = "ANALYTICS"
             mock_connector._schema = "PUBLIC"

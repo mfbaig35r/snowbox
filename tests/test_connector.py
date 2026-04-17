@@ -7,6 +7,42 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from snowbox.connector import _validate_identifier
+
+# ---------------------------------------------------------------------------
+# Identifier validation
+# ---------------------------------------------------------------------------
+
+class TestValidateIdentifier:
+    def test_accepts_simple_name(self) -> None:
+        _validate_identifier("ORDERS")
+
+    def test_accepts_dotted_fqn(self) -> None:
+        _validate_identifier("ANALYTICS.PUBLIC.ORDERS")
+
+    def test_accepts_underscores(self) -> None:
+        _validate_identifier("my_database.my_schema.my_table_1")
+
+    def test_rejects_semicolon(self) -> None:
+        with pytest.raises(ValueError, match="Invalid identifier"):
+            _validate_identifier("ORDERS; DROP TABLE users--")
+
+    def test_rejects_spaces(self) -> None:
+        with pytest.raises(ValueError, match="Invalid identifier"):
+            _validate_identifier("DROP TABLE")
+
+    def test_rejects_quotes(self) -> None:
+        with pytest.raises(ValueError, match="Invalid identifier"):
+            _validate_identifier("table'OR'1'='1")
+
+    def test_rejects_parens(self) -> None:
+        with pytest.raises(ValueError, match="Invalid identifier"):
+            _validate_identifier("func()")
+
+    def test_rejects_empty_string(self) -> None:
+        with pytest.raises(ValueError, match="Invalid identifier"):
+            _validate_identifier("")
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

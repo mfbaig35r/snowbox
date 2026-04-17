@@ -8,6 +8,21 @@ from typing import Any
 import pandas as pd
 
 
+def _validate_identifier(name: str) -> None:
+    """Raise ValueError if *name* contains characters unsafe for SQL identifiers.
+
+    Snowflake SHOW/DESCRIBE don't support parameterized identifiers, so we
+    validate that user-supplied database/schema/table names contain only safe
+    characters before interpolating them into SQL.
+    """
+    import re
+    if not re.fullmatch(r'[a-zA-Z0-9_.]+', name):
+        raise ValueError(
+            f"Invalid identifier: {name!r}. "
+            "Only alphanumeric characters, underscores, and dots are allowed."
+        )
+
+
 class SnowflakeConnector:
     """Lazy Snowflake connection.  Reads env vars at construction time but
     does NOT open a connection until the first query is issued."""
@@ -108,6 +123,8 @@ class SnowflakeConnector:
     ) -> list[dict[str, str]]:
         """Return a list of table dicts with keys: name, database_name, schema_name, kind."""
         if database and schema:
+            _validate_identifier(database)
+            _validate_identifier(schema)
             sql = f"SHOW TABLES IN SCHEMA {database}.{schema}"
         else:
             sql = "SHOW TABLES"
@@ -138,9 +155,12 @@ class SnowflakeConnector:
         """Return column info and 5 sample rows for *table*."""
         parts = []
         if database:
+            _validate_identifier(database)
             parts.append(database)
         if schema:
+            _validate_identifier(schema)
             parts.append(schema)
+        _validate_identifier(table)
         parts.append(table)
         fqn = ".".join(parts)
 

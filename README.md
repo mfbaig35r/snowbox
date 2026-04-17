@@ -25,7 +25,7 @@ pip install snowbox
 Or for development:
 
 ```bash
-git clone https://github.com/your-org/snowbox
+git clone https://github.com/mfbaig35r/snowbox
 cd snowbox
 pip install -e ".[dev]"
 ```

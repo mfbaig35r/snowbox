@@ -46,7 +46,7 @@ class _SnowflakeContext:
         return cur.fetch_pandas_all()
 
     def write(self, df: "_sf_pd.DataFrame", table: str, mode: str = "append",
-              database: str = None, schema: str = None) -> None:
+              database: str | None = None, schema: str | None = None) -> None:
         kwargs = dict(auto_create_table=True, overwrite=(mode == "overwrite"))
         if database:
             kwargs["database"] = database
