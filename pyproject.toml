@@ -13,7 +13,7 @@ authors = [
     {name = "Fahad Baig", email = "mfbaig35r@gmail.com"},
 ]
 dependencies = [
-    "marimo-sandbox>=1.0.0",
+    "marimo-sandbox>=1.0.9",
     "fastmcp>=2.0.0",
     "snowflake-connector-python[pandas]>=3.0.0",
     "pyarrow>=14.0",
